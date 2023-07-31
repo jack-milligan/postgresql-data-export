@@ -18,11 +18,7 @@ The script performs the following steps:
 3. Uploads the excel file to a Microsoft SharePoint site using the Microsoft Graph API.
 
 Environment Variables:
-    DB_USERNAME: Username for the PostgreSQL database.
-    DB_PASSWORD: Password for the PostgreSQL database.
-    DB_Database: Name of the PostgreSQL database.
-    DB_HOST: Host for the PostgreSQL database.
-    DB_PORT: Port for the PostgreSQL database.
+    DB_URL: Connection URL for the PostgreSQL database.
     OAUTH_TOKEN: OAuth token to authenticate with the Microsoft Graph API.
 
 The script uses Python's logging module to log information about each step 
@@ -51,18 +47,20 @@ def read_sql_file(sql_file_path):
         return None
 
 
-def fetch_data(file_name, db_name, db_username, db_password, db_host, db_port):
+def fetch_data(file_name, db_url):
     """
-    Connects to a PostgreSQL database and fetches data using a provided SQL query.
+    Connects to a PostgreSQL database using a connection URL and fetches data
+    using a provided SQL query.
+
+    Args:
+        file_name (str): Path to the SQL file.
+        db_url (str): Name of the environment variable where the database connection URL is stored.
 
     Returns:
         A pandas DataFrame containing the fetched data, or None if an error occurs.
-        data = fetch_data('CMEMS_Complaints_Trending_Denominators.sql', 'DB_Database', 'DB_USERNAME', 'DB_PASSWORD',
-                      'DB_HOST', 'DB_PORT')
     """
     try:
-        conn = psycopg2.connect(database=os.getenv(db_name), user=os.getenv(db_username),
-                                password=os.getenv(db_password), host=os.getenv(db_host), port=os.getenv(db_port))
+        conn = psycopg2.connect(os.getenv(db_url))
         cur = conn.cursor()
         query = read_sql_file(file_name)
         data = pd.read_sql_query(query, conn)
@@ -112,7 +110,7 @@ def upload_to_sharepoint(filename):
 
 def main():
     """
-    Main function that orchestrates the VPN connection, data fetching, saving data to CSV, and uploading to SharePoint.
+    Main function that orchestrates the data fetching, saving data to an excel, and uploading to SharePoint.
     """
     # Get current date and time
     right_now = datetime.now()
@@ -122,8 +120,7 @@ def main():
 
     # Use in file name
     filename = f"{right_now_str} - data_name.xlsx"
-    data = fetch_data('name_of_sql_file', 'DB_Database', 'DB_USERNAME', 'DB_PASSWORD',
-                      'DB_HOST', 'DB_PORT')
+    data = fetch_data('name_of_sql_file', 'URL of DB')
 
     if data is not None:
         save_to_excel(data, filename)
