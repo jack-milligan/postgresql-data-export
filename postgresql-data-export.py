@@ -1,11 +1,14 @@
 import os
 import psycopg2
+from sqlalchemy import create_engine
 import pandas as pd
 import requests
 import logging
 from getpass import getpass
 import subprocess
 from datetime import datetime
+
+from sqlalchemy.testing.config import Config
 
 """
 This script automates the process of exporting data from a PostgreSQL database 
@@ -49,22 +52,36 @@ def read_sql_file(sql_file_path):
 
 def fetch_data(file_name, db_url):
     """
-    Connects to a PostgreSQL database using a connection URL and fetches data
+    Connects to a PostgreSQL database using configuration from environment variables and fetches data
     using a provided SQL query.
 
     Args:
         file_name (str): Path to the SQL file.
-        db_url (str): Name of the environment variable where the database connection URL is stored.
+        db_url (str): Connection URL for the database.
 
     Returns:
         A pandas DataFrame containing the fetched data, or None if an error occurs.
     """
     try:
-        conn = psycopg2.connect(os.getenv(db_url))
-        cur = conn.cursor()
-        query = read_sql_file(file_name)
-        data = pd.read_sql_query(query, conn)
-        conn.close()
+        # Load configuration
+        config = Config()
+        user = config.get('DB_USER')
+        password = config.get('DB_PASSWORD')
+        host = config.get('DB_HOST')
+        port = config.get('DB_PORT')
+        database = config.get('DB_NAME')
+
+        # Create a connection engine
+        engine_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+        engine = create_engine(engine_url, pool_size=10, max_overflow=20)
+
+        # Read the SQL file
+        with open(file_name, 'r') as file:
+            query = file.read()
+
+        # Execute the query and fetch data
+        data = pd.read_sql_query(query, engine)
+
         return data
     except Exception as e:
         logging.error("Error fetching data: %s", e)
